@@ -27,4 +27,8 @@
    ```bash
    mvn test
 
-После выполнения отчёт появится в консоли.
+4. **Открыть Allure**
+
+   ```bash
+   mvn allure:report
+   mvn allure:serve
