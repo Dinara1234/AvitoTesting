@@ -14,7 +14,7 @@
 1. **Клонировать репозиторий**
    ```bash
    git clone https://github.com/Dinara1234/AvitoTesting.git
-   cd AvitoTesting
+   cd AvitoTesting/AvitoTestingJavaProject
 
 2. **Собрать проект и скачать зависимости**
 
