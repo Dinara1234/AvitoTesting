@@ -18,13 +18,13 @@
 
 2. **Собрать проект и скачать зависимости**
 
-```bash
-mvn clean compile
+  ```bash
+    mvn clean compile
 
 3. **Запустить все тесты**
 
 
-```bash
-mvn test
+  ```bash
+   mvn test
 
 После выполнения отчёт появится в консоли.
