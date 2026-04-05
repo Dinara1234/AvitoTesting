@@ -1,6 +1,7 @@
 package get;
 
 import base.BaseTest;
+import io.qameta.allure.*;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import org.example.models.Statistics;
@@ -19,12 +20,15 @@ import java.util.Locale;
 import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.*;
 
+@Epic("API тестирование Avito")
+@Feature("Получение объявления по ID (GET /api/1/item/{id})")
 public class GetItemTests extends BaseTest {
 
     private final int DEFAULT_SELLER_ID = 123456;
     private final String DEFAULT_NAME = "A";
     private final int DEFAULT_PRICE = 1;
 
+    @Step("Отправить POST запрос на /api/1/item с телом: {requestBody}")
     private Response sendPostRequest(Object requestBody) {
         return given()
                 .contentType(ContentType.JSON)
@@ -35,6 +39,7 @@ public class GetItemTests extends BaseTest {
                 .extract().response();
     }
 
+    @Step("Выполнить GET запрос на /api/1/item/{id}")
     private Response sendGetRequest(String id) {
         return given()
                 .accept(ContentType.JSON)
@@ -44,6 +49,7 @@ public class GetItemTests extends BaseTest {
                 .extract().response();
     }
 
+    @Step("Извлечь идентификатор из ответа POST (поддерживает оба формата)")
     private String extractIdFromResponse(Response response) {
         String id = response.jsonPath().getString("id");
         if (id != null && !id.isEmpty()) {
@@ -57,6 +63,7 @@ public class GetItemTests extends BaseTest {
         return null;
     }
 
+    @Step("Проверить, что GET ответ содержит корректные данные и соответствует созданному объявлению")
     private void assertGetSuccessResponse(Response response, CreateItemRequest expectedRequest, String expectedId) {
         assertEquals(200, response.statusCode());
         List<ItemResponse> items = response.jsonPath().getList(".", ItemResponse.class);
@@ -76,6 +83,7 @@ public class GetItemTests extends BaseTest {
                 "createdAt не содержит дату: " + item.getCreatedAt());
     }
 
+    @Step("Проверить структуру ответа при ошибке 400")
     private void assertError400Structure(Response response) {
         assertEquals(400, response.statusCode());
         ErrorResponse error = response.as(ErrorResponse.class);
@@ -85,6 +93,7 @@ public class GetItemTests extends BaseTest {
         assertNotNull(error.getResult().getMessages());
     }
 
+    @Step("Проверить структуру ответа при ошибке 404")
     private void assertError404Structure(Response response) {
         assertEquals(404, response.statusCode());
         assertNotNull(response.jsonPath().getString("result"));
@@ -93,6 +102,7 @@ public class GetItemTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-ITEM-01: Можно получить ранее созданное объявление по его идентификатору")
+    @Description("Создаётся объявление, затем выполняется GET /api/1/item/{id} и проверяется совпадение всех полей")
     void testGetExistingItem() {
         Statistics stats = new Statistics(5, 10, 2);
         CreateItemRequest createRequest = new CreateItemRequest(DEFAULT_SELLER_ID, "GetTest", 777, stats);
@@ -105,6 +115,7 @@ public class GetItemTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-ITEM-02: Запрос несуществующего объявления возвращает ошибку 404 с правильной структурой")
+    @Description("Используется заведомо несуществующий UUID, ожидается 404 и корректное тело ошибки")
     void testGetNonExistentItem() {
         String fakeId = "00000000-0000-0000-0000-000000000000";
         Response response = sendGetRequest(fakeId);
@@ -113,6 +124,7 @@ public class GetItemTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-ITEM-03: Идентификатор в неверном формате (например, просто строка) вызывает ошибку 400")
+    @Description("Передаётся некорректный ID (не UUID), ожидается 400 с валидной структурой ошибки")
     void testGetWithInvalidFormatId() {
         Response response = sendGetRequest("abc");
         assertError400Structure(response);
@@ -120,6 +132,7 @@ public class GetItemTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-ITEM-04: Пустой идентификатор (отсутствие id в URL) приводит к ошибке 400")
+    @Description("Запрос без параметра id (GET /api/1/item/) должен вернуть 400")
     void testGetWithEmptyId() {
         Response response = given()
                 .accept(ContentType.JSON)
@@ -132,6 +145,7 @@ public class GetItemTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-ITEM-05: Идентификатор со спецсимволами (например, слэш) должен возвращать 400 или 404 с корректной структурой")
+    @Description("Проверка устойчивости к спецсимволам в ID; допускается 400 или 404, но структура должна соответствовать")
     void testGetWithSpecialCharsInId() {
         Response response = sendGetRequest("test/1");
         int statusCode = response.statusCode();
@@ -146,6 +160,7 @@ public class GetItemTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-ITEM-06: После удаления объявления попытка его получить должна завершаться ошибкой 404")
+    @Description("Создаётся объявление, удаляется через DELETE, затем GET должен вернуть 404")
     void testGetAfterDelete() {
         Statistics stats = new Statistics(1, 1, 1);
         CreateItemRequest createRequest = new CreateItemRequest(DEFAULT_SELLER_ID, "ToDelete", 100, stats);
@@ -164,6 +179,7 @@ public class GetItemTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-ITEM-07: Поле createdAt должно содержать корректную дату и время создания, близкое к моменту запроса")
+    @Description("Проверяется, что createdAt парсится в дату и отстаёт от текущего времени не более чем на 5 секунд")
     void testCreatedAtField() {
         Statistics stats = new Statistics(1, 2, 2);
         CreateItemRequest createRequest = new CreateItemRequest(DEFAULT_SELLER_ID, "DateTest", 123, stats);

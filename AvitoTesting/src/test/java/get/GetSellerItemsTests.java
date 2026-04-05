@@ -1,6 +1,7 @@
 package get;
 
 import base.BaseTest;
+import io.qameta.allure.*;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import org.example.models.CreateItemRequest;
@@ -16,12 +17,15 @@ import java.util.stream.Collectors;
 import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.*;
 
+@Epic("API тестирование Avito")
+@Feature("Получение всех объявлений продавца (GET /api/1/{sellerID}/item)")
 public class GetSellerItemsTests extends BaseTest {
 
     private final int DEFAULT_SELLER_ID = 123456;
     private final String DEFAULT_NAME = "Item";
     private final int DEFAULT_PRICE = 100;
 
+    @Step("Отправить POST запрос на /api/1/item с телом: {requestBody}")
     private Response sendPostRequest(Object requestBody) {
         return given()
                 .contentType(ContentType.JSON)
@@ -32,6 +36,7 @@ public class GetSellerItemsTests extends BaseTest {
                 .extract().response();
     }
 
+    @Step("Извлечь идентификатор из ответа POST")
     private String extractIdFromResponse(Response response) {
         String id = response.jsonPath().getString("id");
         if (id != null && !id.isEmpty()) {
@@ -45,6 +50,7 @@ public class GetSellerItemsTests extends BaseTest {
         return null;
     }
 
+    @Step("Выполнить GET запрос на /api/1/{sellerId}/item")
     private Response sendGetSellerItemsRequest(int sellerId) {
         return given()
                 .accept(ContentType.JSON)
@@ -54,6 +60,7 @@ public class GetSellerItemsTests extends BaseTest {
                 .extract().response();
     }
 
+    @Step("Проверить структуру ошибки 400")
     private void assertError400Structure(Response response) {
         assertEquals(400, response.statusCode());
         ErrorResponse error = response.as(ErrorResponse.class);
@@ -63,6 +70,7 @@ public class GetSellerItemsTests extends BaseTest {
         assertNotNull(error.getResult().getMessages());
     }
 
+    @Step("Проверить, что элемент ответа соответствует созданному объявлению")
     private void assertItemResponse(ItemResponse actual, CreateItemRequest expected, String expectedId) {
         assertEquals(expectedId, actual.getId());
         assertEquals(expected.getSellerId(), actual.getSellerId());
@@ -80,24 +88,31 @@ public class GetSellerItemsTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-SELLER-01: Можно получить все объявления продавца, создав для него несколько объявлений")
+    @Description("Создаются два объявления для одного sellerId, затем запрашивается список – оба объявления должны присутствовать и иметь корректные поля")
     void testGetItemsBySellerId_MultipleItems() {
         int sellerId = 5643118;
         Statistics stats = new Statistics(1, 2, 3);
         CreateItemRequest request1 = new CreateItemRequest(sellerId, "First", 100, stats);
         CreateItemRequest request2 = new CreateItemRequest(sellerId, "Second", 200, stats);
+
         Response createResp1 = sendPostRequest(request1);
         assertEquals(200, createResp1.statusCode());
         String id1 = extractIdFromResponse(createResp1);
+
         Response createResp2 = sendPostRequest(request2);
         assertEquals(200, createResp2.statusCode());
         String id2 = extractIdFromResponse(createResp2);
+
         Response getResponse = sendGetSellerItemsRequest(sellerId);
         assertEquals(200, getResponse.statusCode());
+
         List<ItemResponse> items = getResponse.jsonPath().getList(".", ItemResponse.class);
         assertNotNull(items);
+
         List<String> foundIds = items.stream().map(ItemResponse::getId).collect(Collectors.toList());
         assertTrue(foundIds.contains(id1), "Не найдено объявление с id " + id1);
         assertTrue(foundIds.contains(id2), "Не найдено объявление с id " + id2);
+
         for (ItemResponse item : items) {
             if (item.getId().equals(id1)) {
                 assertItemResponse(item, request1, id1);
@@ -109,10 +124,12 @@ public class GetSellerItemsTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-SELLER-02: Для продавца без объявлений должен возвращаться пустой массив")
+    @Description("Если у продавца нет объявлений, GET возвращает 200 и пустой список. При наличии объявлений они предварительно удаляются.")
     void testGetItemsBySellerId_NoItems() {
         int targetSellerId = 5643118;
         Response getResponse = sendGetSellerItemsRequest(targetSellerId);
         assertEquals(200, getResponse.statusCode());
+
         List<ItemResponse> existingItems = getResponse.jsonPath().getList(".", ItemResponse.class);
         if (existingItems != null && !existingItems.isEmpty()) {
             for (ItemResponse item : existingItems) {
@@ -128,6 +145,7 @@ public class GetSellerItemsTests extends BaseTest {
             getResponse = sendGetSellerItemsRequest(targetSellerId);
             assertEquals(200, getResponse.statusCode());
         }
+
         List<?> items = getResponse.jsonPath().getList(".");
         assertNotNull(items);
         assertEquals(0, items.size(), "Ожидался пустой массив, но получены объявления");
@@ -135,6 +153,7 @@ public class GetSellerItemsTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-SELLER-03: Передача sellerID в виде строки (не числа) вызывает ошибку 400")
+    @Description("Некорректный тип параметра – ожидается 400 с валидной структурой ошибки")
     void testGetItemsBySellerId_String() {
         Response response = given()
                 .accept(ContentType.JSON)
@@ -147,6 +166,7 @@ public class GetSellerItemsTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-SELLER-04: Отрицательный sellerID приводит к ошибке 400")
+    @Description("sellerId не может быть отрицательным – ожидается 400")
     void testGetItemsBySellerId_Negative() {
         Response response = sendGetSellerItemsRequest(-123456);
         assertError400Structure(response);
@@ -154,6 +174,7 @@ public class GetSellerItemsTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-SELLER-05: Дробный sellerID вызывает ошибку 400")
+    @Description("sellerId должен быть целым числом – дробное значение даёт 400")
     void testGetItemsBySellerId_Float() {
         Response response = given()
                 .accept(ContentType.JSON)
@@ -166,6 +187,7 @@ public class GetSellerItemsTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-SELLER-06: Очень большой sellerID (10^12) должен либо вернуть 200 с массивом, либо 400")
+    @Description("Проверка граничных значений: API может иметь ограничение на размер sellerId")
     void testGetItemsBySellerId_HugeNumber() {
         long hugeSellerId = 1_000_000_000_000L;
         Response response = sendGetSellerItemsRequest((int) hugeSellerId);
@@ -182,6 +204,7 @@ public class GetSellerItemsTests extends BaseTest {
 
     @Test
     @DisplayName("TC-GET-SELLER-07: sellerID = 0 возвращает ошибку 400")
+    @Description("Нулевой sellerId считается невалидным – ожидается 400")
     void testGetItemsBySellerId_Zero() {
         Response response = sendGetSellerItemsRequest(0);
         assertError400Structure(response);
